@@ -1,0 +1,9 @@
+test/shots/
+test/index.html
+test/*.epub
+test/*.fb2
+test/*.txt
+test/node_modules/
+test/package*.json
+__pycache__/
+.DS_Store
