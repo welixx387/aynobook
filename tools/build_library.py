@@ -8,6 +8,7 @@
 
 Результат в library/: books.json, books/<id>.json, covers/<id>.<ext>, quotes.json
 Скрытые книги на открытый сайт не попадают.
+Файлы неизменённых книг (тот же updatedAt) берутся из прежней library/, их можно не выгружать.
 """
 import json, os, re, shutil, sys, glob
 
@@ -24,6 +25,17 @@ def asset(aid):
     hits = glob.glob(os.path.join(EXPORT, 'assets', aid + '.*'))
     return hits[0] if hits else None
 
+# прежняя версия: неизменённые книги можно не скачивать заново
+OLD = {}
+try:
+    for m in json.load(open(os.path.join(OUT, 'books.json'), encoding='utf-8'))['books']:
+        OLD[m['id']] = m
+except Exception:
+    pass
+KEEPDIR = os.path.join(EXPORT, '_prev')
+shutil.rmtree(KEEPDIR, ignore_errors=True)
+if os.path.isdir(OUT):
+    shutil.copytree(OUT, KEEPDIR)
 shutil.rmtree(OUT, ignore_errors=True)
 os.makedirs(os.path.join(OUT, 'books')); os.makedirs(os.path.join(OUT, 'covers'))
 books, missing = [], []
@@ -36,6 +48,10 @@ for f in sorted(glob.glob(os.path.join(EXPORT, 'books', '*.json'))):
         continue
     c = b.get('content') or {}
     src = asset(c.get('id', '')) if c.get('kind') == 'asset' else None
+    old = OLD.get(bid)
+    unchanged = old and old.get('updatedAt') == b.get('updatedAt')
+    if not src and unchanged and os.path.exists(os.path.join(KEEPDIR, 'books', bid + '.json')):
+        src = os.path.join(KEEPDIR, 'books', bid + '.json')
     if not src:
         missing.append(b.get('title', bid)); continue
     shutil.copyfile(src, os.path.join(OUT, 'books', bid + '.json'))
@@ -43,6 +59,8 @@ for f in sorted(glob.glob(os.path.join(EXPORT, 'books', '*.json'))):
     meta['id'] = bid
     meta['content'] = {'kind': 'static', 'path': f'library/books/{bid}.json'}
     cov = asset(b.get('cover') or '') if b.get('cover') else None
+    if not cov and b.get('cover') and unchanged and old.get('coverPath') and os.path.exists(os.path.join(KEEPDIR, 'covers', os.path.basename(old['coverPath']))):
+        cov = os.path.join(KEEPDIR, 'covers', os.path.basename(old['coverPath']))
     if cov:
         ext = os.path.splitext(cov)[1] or '.jpg'
         shutil.copyfile(cov, os.path.join(OUT, 'covers', bid + ext))
