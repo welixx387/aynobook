@@ -338,10 +338,13 @@ async function boot() {
   enterApp(false);
 }
 function showGate() { $('#gate').hidden = false; $('#app').hidden = true; }
+const CLAUDE_URL = 'https://claude.ai/artifact/19hYPuVf3529Q93D34pbri';
 function gateNoDb() {
   showGate();
-  $('#gateBody').innerHTML = `<h2>Библиотека открывается внутри Claude</h2>
-    <p>Откройте ссылку на эту страницу в Claude, войдя в свой аккаунт. Там появятся книги, а закладки начнут сохраняться.</p>`;
+  $('#gateBody').innerHTML = `<h2>Вход в библиотеку</h2>
+    <p>Книги, закладки и читательские билеты хранятся в Claude. Войдите через свой аккаунт Claude, и библиотека откроется там.</p>
+    <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap"><a class="btn primary" href="${CLAUDE_URL}" rel="noopener" style="min-height:46px;padding:0 26px;text-decoration:none">${ic('user')} Войти через Claude</a></div>
+    <p class="fineprint">Нет аккаунта? Его можно создать на той же странице, это бесплатно. Если библиотека не открывается, попросите библиотекаря выдать вам доступ.</p>`;
 }
 function statsOf() {
   let reading = 0, done = 0, marks = 0, ms = 0;
