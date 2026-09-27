@@ -22,7 +22,7 @@ function renderLibrary() {
         </div>
       </div>
       <div id="gridSlot"></div>
-    </section>`;
+    </section>${S.public ? `<p class="fineprint" style="text-align:center">Читать можно без входа, закладки хранятся в этом браузере. Библиотекарь? <a href="${CLAUDE_URL}" rel="noopener" style="color:var(--brass)">Войти через Claude</a></p>` : ''}`;
   const persist = () => LS.set('lib', L);
   $('#libQ').oninput = e => { L.q = e.target.value; persist(); updateLibrary(); };
   $('#libF').onclick = e => { const b = e.target.closest('[data-f]'); if (!b) return; L.filter = b.dataset.f; persist(); $$('#libF .chip').forEach(x => x.setAttribute('aria-pressed', String(x === b))); updateLibrary(); };
@@ -329,6 +329,7 @@ function renderAdmin() {
       <div class="shelf-head"><h2>Фонд <small id="fundCount" class="num"></small></h2><div class="meter num" id="meter"></div></div>
       <div id="fundSlot"></div>
     </section>
+    <div class="hint">${ic('info')}<div><b>Открытый сайт.</b> На aynobook.vercel.app книги читаются без входа. Новые и изменённые книги появляются там после синхронизации с GitHub. Скрытые книги на открытый сайт не попадают.</div></div>
     <div class="hint">${ic('info')}<div><b>Как пригласить читателей.</b> Нажмите «Поделиться» в Claude и добавьте людей. Чтобы закладки и прогресс читателя сохранялись на сервере, ему нужен доступ с правом изменений. С доступом только на просмотр книги читаются, а закладки остаются в браузере читателя. Добавлять и удалять книги можете только вы.</div></div>`;
   const drop = $('#drop');
   $('#fileIn').onchange = e => { handleFiles([...e.target.files]); e.target.value = ''; };

@@ -17,7 +17,11 @@ const Content = (() => {
     if (cache.has(b.id)) return cache.get(b.id);
     let text;
     const ref = b.content || {};
-    if (ref.kind === 'asset' && safeId(ref.id)) {
+    if (ref.kind === 'static' && /^library\/books\/[A-Za-z0-9_-]+\.json$/.test(ref.path || '')) {
+      const res = await fetch(ref.path);
+      if (!res.ok) throw new Error(`Не удалось загрузить книгу (код ${res.status}).`);
+      text = await res.text();
+    } else if (ref.kind === 'asset' && safeId(ref.id)) {
       const res = await fetch('/_blob/' + ref.id);
       if (!res.ok) throw new Error(res.status === 404 ? 'Файл книги не найден: возможно, его удалили.' : `Не удалось загрузить книгу (код ${res.status}).`);
       text = await res.text();

@@ -194,7 +194,7 @@ const ribbon = () => S.profile?.ribbon || RIBBONS[0].c;
 const userBase = () => `data/users/${S.uid || 'guest'}`;
 const CLOTH = ['#15181C', '#23303D', '#2E353F', '#4A1E23', '#1F2B27', '#353A42', '#1B2433', '#3A2A30', '#262A30', '#2F3A46'];
 const safeId = s => typeof s === 'string' && /^[A-Za-z0-9_-]{6,80}$/.test(s);
-const coverSrc = b => b._src || (safeId(b.cover) ? '/_blob/' + b.cover : (typeof b.coverData === 'string' && b.coverData.startsWith('data:image/') ? b.coverData : ''));
+const coverSrc = b => b._src || (typeof b.coverPath === 'string' && /^library\/covers\/[A-Za-z0-9_-]+\.(jpe?g|png|webp)$/.test(b.coverPath) ? b.coverPath : '') || (safeId(b.cover) ? '/_blob/' + b.cover : (typeof b.coverData === 'string' && b.coverData.startsWith('data:image/') ? b.coverData : ''));
 function coverHTML(b) {
   const src = coverSrc(b);
   if (src) return `<div class="cover"><img src="${esc(src)}" alt="" loading="lazy" decoding="async"></div>`;
@@ -319,7 +319,7 @@ async function boot() {
     [db, user, assets] = await Promise.all(['db', 'user', 'assets'].map(n => C.use(n).catch(() => null)));
   }
   S.db = db; S.user = user; S.assets = assets;
-  if (!db) return gateNoDb();
+  if (!db) return startPublic();
   if (user) {
     try { const me = await user.me(); S.me = me; S.uid = me.id || null; S.owner = !!me.isOwner; } catch {}
   }
@@ -336,6 +336,22 @@ async function boot() {
   if (!prof) return gateRegister();
   if (LS.get('signedOut')) return gateLogin();
   enterApp(false);
+}
+async function startPublic() {
+  let lib = null, qs = null;
+  try { const r = await fetch('library/books.json', { cache: 'no-cache' }); if (r.ok) lib = await r.json(); } catch {}
+  if (!lib || !Array.isArray(lib.books)) return gateNoDb();
+  try { const r = await fetch('library/quotes.json', { cache: 'no-cache' }); if (r.ok) qs = await r.json(); } catch {}
+  S.public = true; S.local = true; S.uid = null; S.owner = false;
+  S.books = new Map(lib.books.filter(b => b && typeof b.title === 'string' && /^[A-Za-z0-9_-]{2,80}$/.test(b.id || '')).map(b => [b.id, b]));
+  S.booksLoaded = true;
+  S.quotes = Array.isArray(qs?.items) ? qs.items.filter(q => q && typeof q.id === 'string' && typeof q.text === 'string') : [];
+  S.quotesLoaded = true;
+  let prof = LS.get(`${userBase()}/profile`);
+  if (!prof) { prof = { name: 'Гость', ribbon: RIBBONS[0].c, cardNo: cardNo(), createdAt: new Date().toISOString(), updatedAt: Date.now(), settings: { ...DEF_SET } }; LS.set(`${userBase()}/profile`, prof); }
+  S.profile = prof;
+  loadLocalStates();
+  enterApp(true);
 }
 function showGate() { $('#gate').hidden = false; $('#app').hidden = true; }
 const CLAUDE_URL = 'https://claude.ai/artifact/19hYPuVf3529Q93D34pbri';
@@ -500,12 +516,12 @@ function openCardSheet() {
       <div class="facts num"><div><b>${fmtDur(st.ms / 60000)}</b><small>за чтением</small></div><div><b>${st.done}</b><small>${plural(st.done, 'книга дочитана', 'книги дочитаны', 'книг дочитано')}</small></div><div><b>${visibleBooks().length}</b><small>на полке</small></div></div>
       <label class="field"><span>Имя в билете</span><input class="input" id="cName" maxlength="40" value="${esc(p.name || '')}"></label>
       <div class="field"><span>Цвет ленты-закладки</span><div class="swatches" id="cRib">${RIBBONS.map(r => `<button type="button" class="swatch" style="--c:${r.c}" data-c="${r.c}" aria-label="${r.n}" aria-pressed="${r.c === pick}"></button>`).join('')}</div></div>
-      ${S.local ? `<div class="hint">${ic('info')}<div>Закладки и прогресс сейчас хранятся <b>только в этом браузере</b>: ваш доступ к библиотеке не позволяет сохранять их на сервере. Попросите библиотекаря выдать доступ с правом изменений.</div></div>` : `<div class="hint">${ic('check')}<div>Закладки, выделения и прогресс сохраняются в вашем профиле и доступны на любом устройстве, где вы вошли в Claude.</div></div>`}`,
-    foot: `<button class="btn ghost" id="cOut">${ic('logout')} Выйти</button><button class="btn primary" id="cSave">Сохранить</button>`,
+      ${S.public ? `<div class="hint">${ic('info')}<div>Вы читаете без входа. Закладки, выделения и прогресс хранятся <b>в этом браузере</b>. Книги на полку добавляет библиотекарь через свой аккаунт Claude.</div></div>` : S.local ? `<div class="hint">${ic('info')}<div>Закладки и прогресс сейчас хранятся <b>только в этом браузере</b>: ваш доступ к библиотеке не позволяет сохранять их на сервере. Попросите библиотекаря выдать доступ с правом изменений.</div></div>` : `<div class="hint">${ic('check')}<div>Закладки, выделения и прогресс сохраняются в вашем профиле и доступны на любом устройстве, где вы вошли в Claude.</div></div>`}`,
+    foot: `${S.public ? `<a class="btn ghost" href="${CLAUDE_URL}" rel="noopener" style="text-decoration:none">${ic('user')} Вход для библиотекаря</a>` : `<button class="btn ghost" id="cOut">${ic('logout')} Выйти</button>`}<button class="btn primary" id="cSave">Сохранить</button>`,
     bind(sh) {
       $('#cRib', sh).onclick = e => { const b = e.target.closest('.swatch'); if (!b) return; pick = b.dataset.c; $$('#cRib .swatch', sh).forEach(x => x.setAttribute('aria-pressed', String(x === b))); sh.querySelector('.lcard').style.setProperty('--rib', pick); };
       $('#cSave', sh).onclick = () => { const nm = $('#cName', sh).value.trim(); if (nm) p.name = nm.slice(0, 40); p.ribbon = pick; saveProfile(100); updateMe(); closeSheet(); toast('Билет обновлён'); onData(); };
-      $('#cOut', sh).onclick = signOut;
+      $('#cOut', sh) && ($('#cOut', sh).onclick = signOut);
     }
   });
 }
