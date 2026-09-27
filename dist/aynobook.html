@@ -1617,6 +1617,7 @@ async function adminClick(e) {
     if (act === 'publish') publishItem(qi);
     else if (act === 'drop') { Q.splice(Q.indexOf(qi), 1); if (qi.coverURL) URL.revokeObjectURL(qi.coverURL); t.closest('[data-q]').remove(); }
     else if (act === 'open' && qi.bookId) openReader(qi.bookId, {});
+    else if (act === 'qnocover') { if (qi.coverURL) URL.revokeObjectURL(qi.coverURL); qi.cover = null; qi.coverURL = null; renderQItem(qi); }
     else if (act === 'qcover') pickImage(async f => { try { const b = await shrinkImage(f, 480, .85); if (qi.coverURL) URL.revokeObjectURL(qi.coverURL); qi.cover = b; qi.coverURL = URL.createObjectURL(b); renderQItem(qi); } catch { toast('Не удалось открыть картинку'); } });
     return;
   }
@@ -1684,7 +1685,7 @@ function renderQItem(it) {
       ${busy ? `<div class="bar"><i style="--p:${it.progress || 5}%"></i></div>` : ''}
       <div class="qactions">${done
         ? `<span class="badge">${ic('check')} На полке</span><button class="btn sm ghost" data-act="open">Открыть</button><button class="btn sm ghost" data-act="drop">Скрыть из списка</button>`
-        : `<button class="btn primary" data-act="publish"${busy ? ' disabled' : ''}>${busy ? 'Загружаю…' : 'Поставить на полку'}</button><button class="btn sm ghost" data-act="qcover"${dis}>${ic('image')} Обложка</button><button class="btn sm ghost" data-act="drop"${dis}>Отменить</button>`}</div>
+        : `<button class="btn primary" data-act="publish"${busy ? ' disabled' : ''}>${busy ? 'Загружаю…' : 'Поставить на полку'}</button><button class="btn sm ghost" data-act="qcover"${dis}>${ic('image')} Обложка</button>${it.cover ? `<button class="btn sm ghost" data-act="qnocover"${dis}>${ic('close')} Убрать обложку</button>` : ''}<button class="btn sm ghost" data-act="drop"${dis}>Отменить</button>`}</div>
     </div>`;
   }
   el.innerHTML = `<div class="book">${cov}</div>${body}`;
@@ -1748,7 +1749,7 @@ function openEditSheet(b) {
   let newCover = null;
   openSheet({
     head: 'Карточка книги', label: 'Изменить книгу',
-    body: `<div class="detail-top"><div class="book" id="edCov">${coverHTML(b)}</div><div style="display:grid;gap:8px;justify-items:start"><button class="btn sm" id="edPick">${ic('image')} Сменить обложку</button>${b.cover || b.coverData ? `<button class="btn sm ghost" id="edNoCov">Тканевая обложка</button>` : ''}</div></div>
+    body: `<div class="detail-top"><div class="book" id="edCov">${coverHTML(b)}</div><div style="display:grid;gap:8px;justify-items:start"><button class="btn sm" id="edPick">${ic('image')} Сменить обложку</button><button class="btn sm ghost" id="edNoCov"${b.cover || b.coverData ? '' : ' hidden'}>${ic('close')} Убрать обложку</button></div></div>
       <label class="field"><span>Название</span><input class="input" id="edT" value="${esc(b.title)}"></label>
       <label class="field"><span>Автор</span><input class="input" id="edA" value="${esc(b.author || '')}"></label>
       <label class="field"><span>Жанр</span><input class="input" id="edG" value="${esc(b.genre || '')}"></label>
@@ -1757,8 +1758,8 @@ function openEditSheet(b) {
     bind(sh) {
       let clear = false;
       $('[data-close2]', sh).onclick = () => closeSheet();
-      $('#edPick', sh).onclick = () => pickImage(async f => { try { newCover = await shrinkImage(f, 480, .85); clear = false; $('#edCov', sh).innerHTML = coverHTML({ _src: URL.createObjectURL(newCover) }); } catch { toast('Не удалось открыть картинку'); } });
-      $('#edNoCov', sh) && ($('#edNoCov', sh).onclick = () => { clear = true; newCover = null; $('#edCov', sh).innerHTML = coverHTML({ title: $('#edT', sh).value, author: $('#edA', sh).value }); });
+      $('#edPick', sh).onclick = () => pickImage(async f => { try { newCover = await shrinkImage(f, 480, .85); clear = false; $('#edCov', sh).innerHTML = coverHTML({ _src: URL.createObjectURL(newCover) }); $('#edNoCov', sh).hidden = false; } catch { toast('Не удалось открыть картинку'); } });
+      $('#edNoCov', sh) && ($('#edNoCov', sh).onclick = () => { clear = true; newCover = null; $('#edCov', sh).innerHTML = coverHTML({ title: $('#edT', sh).value, author: $('#edA', sh).value }); $('#edNoCov', sh).hidden = true; toast('Обложка будет убрана после сохранения', 2200); });
       $('#edSave', sh).onclick = async () => {
         const btn = $('#edSave', sh); btn.disabled = true;
         const patch = { title: $('#edT', sh).value.trim().slice(0, 300) || b.title, author: $('#edA', sh).value.trim().slice(0, 200), genre: $('#edG', sh).value.trim().slice(0, 80), description: $('#edD', sh).value.trim().slice(0, 4000), updatedAt: Date.now() };
