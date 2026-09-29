@@ -220,7 +220,7 @@ function layout() {
     R.cols = 1; rd.classList.remove('two');
     vp.style.cssText = ''; flow.style.transform = 'none';
     flow.style.width = Math.min(sw - 2 * M, Math.round(fs * 36)) + 'px';
-    flow.style.height = ''; flow.style.columnCount = ''; flow.style.columnGap = '';
+    flow.style.height = ''; flow.style.columnCount = ''; flow.style.columnWidth = ''; flow.style.columnGap = '';
     return;
   }
   let cols = s.cols === 'auto' ? ((sw >= 1000 && sw / sh > 1.2) ? 2 : 1) : +s.cols;
@@ -233,7 +233,7 @@ function layout() {
   const vh = Math.max(120, Math.floor(sh - padT * 2));
   vp.style.cssText = `width:${vw}px;height:${vh}px;margin-top:${padT}px`;
   flow.style.width = vw + 'px'; flow.style.height = vh + 'px';
-  flow.style.columnCount = cols; flow.style.columnGap = gap + 'px'; flow.style.columnFill = 'auto';
+  flow.style.columnWidth = colW + 'px'; flow.style.columnCount = cols; flow.style.columnGap = gap + 'px'; flow.style.columnFill = 'auto';
   flow.style.setProperty('--vh', (vh - fs) + 'px');
   R.cols = cols; R.pageW = vw + gap;
   rd.classList.toggle('two', cols === 2);
@@ -246,7 +246,8 @@ function countPages() {
   let right = 0;
   const last = R.blocks[R.blocks.length - 1];
   if (last) { const rs = last.getClientRects(); if (rs.length) right = rs[rs.length - 1].right - fr.left; }
-  right = Math.max(right, 1);
+  // запасной способ (Safari): ширина всей колоночной раскладки
+  right = Math.max(right, flow.scrollWidth, vp.scrollWidth, 1);
   R.pages = Math.max(1, Math.ceil((right + 1) / R.pageW));
   R.page = clamp(R.page, 0, R.pages - 1);
 }
